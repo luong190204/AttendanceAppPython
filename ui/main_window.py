@@ -1,0 +1,1 @@
+# Cửa sổ chính của ứng dụng, chứa các trang con

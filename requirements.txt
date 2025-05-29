@@ -1,0 +1,9 @@
+# requirements.txt
+opencv-python~=4.11.0.86
+dlib
+face_recognition~=1.3.0
+PyQt5
+bcrypt~=4.3.0
+numpy~=2.0.2
+PyMySQL
+mysqlclient
