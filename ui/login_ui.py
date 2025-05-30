@@ -19,7 +19,6 @@ if project_root not in sys.path:
 
 # Đảm bảo các import này chính xác
 from database.user_repository import UserRepository
-from database.connection_manager import ConnectionManager
 
 class LoginUI(QWidget):
     # Tín hiệu được phát ra khi đăng nhập thành công
@@ -97,7 +96,7 @@ class LoginUI(QWidget):
         layout.addStretch()
 
         # Thông tin bổ sung
-        info_label = QLabel("Phiên bản 1.0\n© 2024 Hệ Thống Điểm Danh")
+        info_label = QLabel("Phiên bản 1.0\n© 2025 Hệ Thống Điểm Danh")
         info_label.setAlignment(Qt.AlignCenter)
         info_label.setObjectName("info")
         layout.addWidget(info_label)
@@ -416,62 +415,3 @@ class LoginUI(QWidget):
                 margin-top: 15px;
             }
         """
-
-
-def main():
-    """Hàm main để khởi chạy ứng dụng và kết nối CSDL."""
-    from PyQt5.QtWidgets import QApplication, QMessageBox
-
-    logger.info("Bắt đầu khởi động ứng dụng...")
-
-    # Khởi tạo ứng dụng PyQt TRƯỚC KHI kết nối CSDL
-    app = QApplication(sys.argv)
-    app.setApplicationName("Hệ Thống Điểm Danh Sinh Viên")
-
-    # Thiết lập font mặc định cho toàn ứng dụng
-    font = QFont("Segoe UI", 12)
-    app.setFont(font)
-
-    # --- KẾT NỐI CSDL VỚI ERROR HANDLING CHI TIẾT ---
-    logger.info("Đang cố gắng kết nối cơ sở dữ liệu...")
-
-    try:
-        conn_manager = ConnectionManager()
-        logger.info("Đã khởi tạo ConnectionManager")
-
-        # Thêm debug chi tiết
-        logger.info("Đang gọi conn_manager.connect()...")
-        connection_result = conn_manager.connect()
-        logger.info(f"Kết quả kết nối: {connection_result}")
-
-        if not connection_result:
-            # Nếu không kết nối được, hiển thị thông báo lỗi và thoát ứng dụng
-            error_msg = "Không thể kết nối đến cơ sở dữ liệu.\nVui lòng kiểm tra:\n" \
-                        "1. MySQL server đã được khởi động chưa?\n" \
-                        "2. Thông tin kết nối (host, port, username, password) có đúng không?\n" \
-                        "3. Database đã được tạo chưa?"
-
-            QMessageBox.critical(None, "Lỗi Kết Nối CSDL", error_msg)
-            logger.error("Kết nối CSDL thất bại. Ứng dụng sẽ thoát.")
-            sys.exit(1)
-
-        logger.info("Kết nối CSDL thành công.")
-
-    except ImportError as e:
-        logger.error(f"Lỗi import ConnectionManager: {e}")
-        QMessageBox.critical(None, "Lỗi Import",
-                             f"Không thể import ConnectionManager.\nLỗi: {e}\n\n"
-                             "Vui lòng kiểm tra:\n"
-                             "1. File database/connection_manager.py có tồn tại không?\n"
-                             "2. Các thư viện cần thiết đã được cài đặt chưa?")
-        sys.exit(1)
-
-    except Exception as e:
-        logger.error(f"Lỗi không xác định khi kết nối CSDL: {e}")
-        QMessageBox.critical(None, "Lỗi Kết Nối",
-                             f"Có lỗi không xác định khi kết nối CSDL:\n{e}\n\n"
-                             "Vui lòng kiểm tra log để biết thêm chi tiết.")
-        sys.exit(1)
-
-if __name__ == '__main__':
-    main()
