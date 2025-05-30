@@ -132,6 +132,6 @@ Dự án này được cấp phép dưới Giấy phép MIT.
 
 * **Tên của bạn:** Nguyễn Đình Lượng
 * **Email:** dinhluong19002004@gmail.com
-* **GitHub:** `https://github.com/luong190204`
+* **GitHub:** https://github.com/luong190204
 
 ---
