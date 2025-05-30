@@ -38,6 +38,15 @@ class StudentRepository(BaseRepository):
         query = "DELETE FROM SinhVien WHERE MaSV = %s"
         return self.execute_query(query, (MaSV,))
 
+    def get_total_students(self):
+        query = "SELECT COUNT(*) FROM SinhVien"
+        result = self.fetch_one(query)  # base_repository.fetch_one trả về một tuple hoặc dict
+        if result:
+            # Nếu dùng DictCursor, result có thể là {'COUNT(*)': value} hoặc {'count': value}
+            # Nếu không dùng DictCursor, result là (value,)
+            return result[0] if isinstance(result, tuple) else list(result.values())[0]
+        return 0
+
     # KhuonMat related methods
     def add_face_embedding(self, MaSV_FK, DuongDanAnh, DuLieuMaHoa):
         query = """
@@ -57,17 +66,3 @@ class StudentRepository(BaseRepository):
         return self.fetch_all(query, (MaSV_FK,))
 
 # Example usage (for testing this specific repository)
-if __name__ == '__main__':
-    # Lưu ý: Cần đảm bảo MySQL server đang chạy và DB/bảng đã được tạo
-    # và config.py đã đúng
-    repo = StudentRepository()
-
-    print("\n--- Danh sách sinh viên ---")
-    all_student = repo.get_all_students()
-    if all_student:
-        for students in all_student:
-            print(students)
-
-
-    # Đừng quên ngắt kết nối khi hoàn tất
-    repo.conn_manager.disconnect()

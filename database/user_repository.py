@@ -38,6 +38,13 @@ class UserRepository(BaseRepository):
         query = "DELETE FROM GiangVien WHERE MaGV = %s"
         return self.execute_query(query, (MaGV,))
 
+    def get_total_lecturers(self):
+        query = "SELECT COUNT(*) FROM GiangVien"
+        result = self.fetch_one(query)
+        if result:
+            return result[0] if isinstance(result, tuple) else list(result.values())[0]
+        return 0
+
     # --- TaiKhoan ---
     def add_user_account(self, TenDangNhap, MatKhau, LoaiTaiKhoan, MaGV_FK):
         # Hash mật khẩu trước khi lưu
@@ -100,5 +107,16 @@ if __name__ == '__main__':
     all_account = db.get_all_user_account()
     for account in all_account:
         print(account)
+
+
+    if db.add_lecturer("GV002", "Lê Đức Chung", "ducchung@gmail.com", "0355665655"):
+        print("Thêm giáo viên thành công!")
+    else:
+        print("Thất bại!")
+
+    if db.delete_user_account("gv002"):
+        print("Xóa account thành công!")
+    else:
+        print("Thất bại!")
 # Đừng quên ngắt kết nối khi hoàn tất
     db.conn_manager.disconnect()

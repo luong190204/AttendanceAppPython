@@ -1,6 +1,6 @@
 # database/attendance_repository.py
 from database.base_repository import BaseRepository
-from mysql.connector import Error  # Import Error for specific error handling if needed
+from pymysql import Error  # Import Error for specific error handling if needed
 import datetime
 
 
@@ -170,26 +170,3 @@ class AttendanceRepository(BaseRepository):
         if result and result[0] > 0:
             return True
         return False
-
-# --- Phần kiểm thử (có thể xóa sau khi các hàm được kiểm tra đầy đủ) ---
-if __name__ == '__main__':
-    # Lưu ý: Đảm bảo MySQL server đang chạy, DB và các bảng đã được tạo
-    # và các bảng SinhVien, LopHoc, MonHoc đã có dữ liệu mẫu.
-    # config.py phải được cấu hình đúng.
-
-    repo = AttendanceRepository()
-
-    now = datetime.datetime.now()
-
-    # Test `check_student_attended_today`
-    print("\n--- Kiểm tra sinh viên đã điểm danh hôm nay chưa ---")
-    if not repo.check_student_attended_today('SV003', 'LH001', 'MH001', now.date()):
-        if repo.add_attendance_record('LH001', 'MH001', 'SV001', now, 'Có mặt'):
-            print(f"Thêm điểm danh 'Có mặt' cho SV001 (L01-M01) lúc {now.strftime('%H:%M:%S')} thành công.")
-        else:
-            print("Thêm điểm danh SV001 thất bại.")
-    else:
-        print(f"SV003 đã điểm danh 'Có mặt' trong L01-M01 hôm nay ({now.date()}).")
-
-    # Đừng quên ngắt kết nối khi hoàn tất
-    repo.conn_manager.disconnect()

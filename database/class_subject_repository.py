@@ -1,6 +1,6 @@
 # database/class_subject_repository.py
 from database.base_repository import BaseRepository
-from mysql.connector import Error
+from pymysql import Error
 import sys
 import os
 
@@ -73,6 +73,13 @@ class ClassSubjectRepository(BaseRepository):
         except Error as e:
             print(f"Lỗi khi xóa lớp học: {e}. Vui lòng xóa các dữ liệu liên quan trước.")
             return False
+
+    def get_total_classes(self):
+        query = "SELECT COUNT(*) FROM LopHoc"  # Tên bảng lớp học của bạn
+        result = self.fetch_one(query)
+        if result:
+            return result[0] if isinstance(result, tuple) else list(result.values())[0]
+        return 0
 
     # --- Các hàm cho bảng MonHoc ---
     def add_subject(self, MaMon, TenMon, SoTinChi):
