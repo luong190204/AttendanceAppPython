@@ -106,7 +106,7 @@ class FaceEmbedder:
             logger.error(f"Lỗi khởi tạo camera: {e}")
             return None
 
-    def _detect_and_encode_faces(self, rgb_frame: np.ndarray) -> List[np.ndarray]:
+    def detect_and_encode_faces(self, rgb_frame: np.ndarray) -> List[np.ndarray]:
         """
         Phát hiện và mã hóa khuôn mặt từ frame RGB
         """
@@ -354,6 +354,7 @@ class FaceEmbedder:
         }
 
 
+"""
 # --- Phần kiểm thử (có thể xóa sau khi tích hợp vào UI) ---
 if __name__ == '__main__':
     # Đảm bảo MySQL server đang chạy và DB/bảng đã được tạo, config.py đã đúng
@@ -390,3 +391,4 @@ if __name__ == '__main__':
         print("Không thể thu thập và lưu embedding cho SV005.")
 
     conn_manager.disconnect()
+"""

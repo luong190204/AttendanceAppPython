@@ -1,11 +1,15 @@
 import sys
+import time
+
 import cv2
 import numpy as np
+import os
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
                              QLineEdit, QTextEdit, QGroupBox, QGridLayout, QComboBox,
                              QDialogButtonBox, QScrollArea, QMessageBox, QMainWindow,
-                             QTableWidget, QTableWidgetItem, QApplication, QWidget, QAbstractItemView)
-from PyQt5.QtCore import Qt, pyqtSignal
+                             QTableWidget, QTableWidgetItem, QApplication, QWidget, QAbstractItemView,
+                            QDateEdit)
+from PyQt5.QtCore import Qt, pyqtSignal, QDate
 from PyQt5.QtGui import QImage, QPixmap, QFont, QColor
 
 
@@ -15,14 +19,20 @@ from face_recognition_module.face_embedder import FaceEmbedder
 class FaceCaptureDialog(QDialog):
     facesCaptured = pyqtSignal(list)
 
-    def __init__(self, student_name="Unknown", parent=None):
+    def __init__(self, student_id, student_name="Unknown", parent=None):
         super().__init__(parent)
         self.student_name = student_name
+        self.student_id = student_id
         self.face_embedder = FaceEmbedder()
         self.face_embeddings = []
         self.cap = None
         self.timer = None
         self.setupUI()
+        self.sample_count = 0
+        self.max_samples = 3
+        self.save_dir = f"assets/student_faces"
+        os.makedirs(self.save_dir, exist_ok=True)
+        self.student_repo = StudentRepository()
 
     def setupUI(self):
         self.setWindowTitle(f"Chụp khuôn mặt - {self.student_name}")
@@ -140,18 +150,37 @@ class FaceCaptureDialog(QDialog):
                 return
 
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            embedding = self.face_embedder.get_embedding(frame_rgb)
-            if embedding is not None:
-                self.face_embeddings.append(embedding)
-                self.status_label.setText(f"Đã chụp {len(self.face_embeddings)}/5 mẫu khuôn mặt")
-                if len(self.face_embeddings) >= 5:
+
+            # Detect và encode embedding
+            embeddings = self.face_embedder.detect_and_encode_faces(frame_rgb)
+            if embeddings:
+                embedding = embeddings[0]  # lấy khuôn mặt đầu tiên
+                # Lưu ảnh vào thư mục với tên rõ ràng
+                timestamp = int(time.time())
+                img_filename = f"{self.student_id}_{self.sample_count + 1}_{timestamp}.jpg"
+                img_path = os.path.join(self.save_dir, img_filename)
+                cv2.imwrite(img_path, frame)
+
+                # Lưu embedding vào CSDL
+                embedding_blob = embedding.astype(np.float32).tobytes()
+                with self.face_embedder.processing_lock:
+                    if self.student_repo.add_face_embedding(self.student_id, img_path, embedding_blob):
+                        self.face_embeddings.append(embedding)
+                        self.sample_count += 1
+                        self.status_label.setText(f"Đã chụp {self.sample_count}/{self.max_samples} mẫu")
+                    else:
+                        print(f"Lỗi khi lưu embedding mẫu {self.sample_count + 1}")
+
+                if self.sample_count >= self.max_samples:
                     self.stopCapture()
 
+            # Hiển thị video
             h, w, ch = frame_rgb.shape
             bytes_per_line = ch * w
             q_image = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(q_image).scaled(self.video_label.size(), Qt.KeepAspectRatio)
             self.video_label.setPixmap(pixmap)
+
         except Exception as e:
             print(f"Error in timerEvent: {e}")
 
@@ -167,7 +196,7 @@ class FaceCaptureDialog(QDialog):
         self.status_label.setText(f"Đã chụp {len(self.face_embeddings)}/3 mẫu khuôn mặt")
 
     def saveFaces(self):
-        if len(self.face_embeddings) < 5:
+        if len(self.face_embeddings) < 3:
             QMessageBox.warning(self, "Cảnh báo", "Cần ít nhất 3 mẫu khuôn mặt!")
             return
         self.facesCaptured.emit(self.face_embeddings)
@@ -183,6 +212,7 @@ class StudentFormDialog(QDialog):
 
     def __init__(self, student_data=None, parent=None):
         super().__init__(parent)
+        self.student_id_edit = None
         self.student_data = student_data
         self.face_embeddings = []
         self.student_repository = StudentRepository()
@@ -240,52 +270,48 @@ class StudentFormDialog(QDialog):
         """)
         form_layout = QGridLayout()
 
+        # Mã sinh viên
         form_layout.addWidget(QLabel("Mã sinh viên: *"), 0, 0)
         self.student_id_edit = QLineEdit()
         self.student_id_edit.setPlaceholderText("Nhập mã sinh viên (VD: SV001)")
         form_layout.addWidget(self.student_id_edit, 0, 1)
 
+        # Họ tên
         form_layout.addWidget(QLabel("Họ tên: *"), 1, 0)
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("Nhập họ tên đầy đủ")
         form_layout.addWidget(self.name_edit, 1, 1)
 
-        form_layout.addWidget(QLabel("Email:"), 2, 0)
+        # Ngày sinh (Date Picker)
+        form_layout.addWidget(QLabel("Ngày sinh:"), 2, 0)
+        self.birth_edit = QDateEdit()
+        self.birth_edit.setCalendarPopup(True)
+        self.birth_edit.setDisplayFormat("dd/MM/yyyy")
+        form_layout.addWidget(self.birth_edit, 2, 1)
+
+        # Giới tính (ComboBox)
+        form_layout.addWidget(QLabel("Giới tính:"), 3, 0)
+        self.gender_combo = QComboBox()
+        self.gender_combo.addItems(["Nam", "Nữ", "Khác"])
+        form_layout.addWidget(self.gender_combo, 3, 1)
+
+        # Địa chỉ
+        form_layout.addWidget(QLabel("Địa chỉ:"), 4, 0)
+        self.address_edit = QLineEdit()
+        self.address_edit.setPlaceholderText("Nhập địa chỉ liên lạc")
+        form_layout.addWidget(self.address_edit, 4, 1)
+
+        # Email
+        form_layout.addWidget(QLabel("Email:"), 5, 0)
         self.email_edit = QLineEdit()
         self.email_edit.setPlaceholderText("Nhập địa chỉ email")
-        form_layout.addWidget(self.email_edit, 2, 1)
+        form_layout.addWidget(self.email_edit, 5, 1)
 
-        form_layout.addWidget(QLabel("Số điện thoại:"), 3, 0)
+        # Số điện thoại
+        form_layout.addWidget(QLabel("Số điện thoại:"), 6, 0)
         self.phone_edit = QLineEdit()
         self.phone_edit.setPlaceholderText("Nhập số điện thoại")
-        form_layout.addWidget(self.phone_edit, 3, 1)
-
-        form_layout.addWidget(QLabel("Lớp:"), 4, 0)
-        self.class_edit = QLineEdit()
-        self.class_edit.setPlaceholderText("Nhập lớp (VD: CNTT-K15)")
-        form_layout.addWidget(self.class_edit, 4, 1)
-
-        form_layout.addWidget(QLabel("Khoa:"), 5, 0)
-        self.department_combo = QComboBox()
-        self.department_combo.addItems([
-            "Công nghệ thông tin",
-            "Điện tử viễn thông",
-            "Cơ khí",
-            "Kinh tế",
-            "Ngoại ngữ",
-            "Toán - Tin",
-            "Vật lý",
-            "Hóa học",
-            "Sinh học",
-            "Khác"
-        ])
-        form_layout.addWidget(self.department_combo, 5, 1)
-
-        form_layout.addWidget(QLabel("Ghi chú:"), 6, 0, Qt.AlignTop)
-        self.notes_edit = QTextEdit()
-        self.notes_edit.setMaximumHeight(80)
-        self.notes_edit.setPlaceholderText("Nhập ghi chú thêm (không bắt buộc)")
-        form_layout.addWidget(self.notes_edit, 6, 1)
+        form_layout.addWidget(self.phone_edit, 6, 1)
 
         form_group.setLayout(form_layout)
         layout.addWidget(form_group)
@@ -403,17 +429,33 @@ class StudentFormDialog(QDialog):
 
     def loadStudentData(self):
         try:
-            self.student_id_edit.setText(self.student_data.get('student_id', ''))
+            self.student_id_edit.setText(self.student_data.get('MaSV', ''))
             self.student_id_edit.setEnabled(False)
-            self.name_edit.setText(self.student_data.get('name', ''))
-            self.email_edit.setText(self.student_data.get('email', ''))
-            self.phone_edit.setText(self.student_data.get('phone', ''))
-            self.class_edit.setText(self.student_data.get('class_name', ''))
-            department = self.student_data.get('department', '')
-            index = self.department_combo.findText(department)
+            self.name_edit.setText(self.student_data.get('TenSV', ''))
+
+            # Ngày sinh (QDateEdit)
+            ngaysinh_str = self.student_data.get('NgaySinh', '')
+            if ngaysinh_str:
+                try:
+                    date = QDate.fromString(ngaysinh_str, "dd/MM/yyyy")
+                    if not date.isValid():
+                        date = QDate.fromString(ngaysinh_str, "yyyy-MM-dd")
+                    if date.isValid():
+                        self.birth_edit.setDate(date)
+                except:
+                    pass
+
+            # Giới tính (QComboBox)
+            gioitinh = self.student_data.get('GioiTinh', '')
+            index = self.gender_combo.findText(gioitinh)
             if index >= 0:
-                self.department_combo.setCurrentIndex(index)
-            self.notes_edit.setText(self.student_data.get('notes', ''))
+                self.gender_combo.setCurrentIndex(index)
+
+            # Các trường còn lại
+            self.address_edit.setText(self.student_data.get('DiaChi', ''))
+            self.email_edit.setText(self.student_data.get('Email', ''))
+            self.phone_edit.setText(self.student_data.get('SDT', ''))
+
             self.face_embeddings = self.student_data.get('embeddings', [])
             self.updateFaceStatus()
         except Exception as e:
@@ -446,8 +488,9 @@ class StudentFormDialog(QDialog):
             """)
 
     def captureFace(self):
+        student_id = self.student_id_edit.text().strip()
         try:
-            dialog = FaceCaptureDialog(student_name=self.name_edit.text() or "Sinh viên", parent=self)
+            dialog = FaceCaptureDialog(student_id ,student_name=self.name_edit.text() or "Sinh viên", parent=self)
             dialog.facesCaptured.connect(self.storeFaceEmbeddings)
             dialog.exec_()
         except Exception as e:
@@ -474,7 +517,7 @@ class StudentFormDialog(QDialog):
         if not name:
             QMessageBox.warning(self, "Lỗi nhập liệu", "Họ tên là bắt buộc!")
             return False
-        if len(self.face_embeddings) < 5 and not self.student_data:
+        if len(self.face_embeddings) < 3 and not self.student_data:
             QMessageBox.warning(self, "Lỗi nhập liệu", "Cần ít nhất 5 mẫu dữ liệu khuôn mặt!")
             return False
         return True
@@ -487,18 +530,25 @@ class StudentFormDialog(QDialog):
             student_data = {
                 'MaSV': self.student_id_edit.text().strip(),
                 'TenSV': self.name_edit.text().strip(),
-                'NgaySinh': self.email_edit.text().strip(),
-                'GioiTinh': self.phone_edit.text().strip(),
-                'DiaChi': self.class_edit.text().strip(),
-                'Email': self.department_combo.currentText(),
-                'SDT': self.notes_edit.toPlainText().strip(),
-                'embeddings': self.face_embeddings
+                'NgaySinh': self.birth_edit.date().toString("yyyy-MM-dd"),
+                'GioiTinh': self.gender_combo.currentText(),
+                'DiaChi': self.address_edit.text().strip(),
+                'Email': self.email_edit.text().strip(),
+                'SDT': self.phone_edit.text().strip(),
             }
 
-            if self.student_data:
-                success = self.student_repository.update_student(student_data)
+            if self.student_data:  # cập nhật
+                success = self.student_repository.update_student(
+                    student_data['MaSV'],
+                    student_data['TenSV'],
+                    student_data['NgaySinh'],
+                    student_data['GioiTinh'],
+                    student_data['DiaChi'],
+                    student_data['Email'],
+                    student_data['SDT']
+                )
                 action = "cập nhật"
-            else:
+            else:  # thêm mới
                 success = self.student_repository.add_student(student_data)
                 action = "thêm"
 
@@ -667,6 +717,18 @@ class StudentManagementUI(QMainWindow):
         dialog.studentSaved.connect(self.onStudentSaved)
         dialog.exec_()
 
+    def onStudentUpdated(self, row, student_data):
+        self.student_table.setItem(row, 0, QTableWidgetItem(student_data['MaSV']))
+        self.student_table.setItem(row, 1, QTableWidgetItem(student_data['TenSV']))
+        self.student_table.setItem(row, 2, QTableWidgetItem(student_data['NgaySinh']))
+        self.student_table.setItem(row, 3, QTableWidgetItem(student_data['GioiTinh']))
+        self.student_table.setItem(row, 4, QTableWidgetItem(student_data['DiaChi']))
+        self.student_table.setItem(row, 5, QTableWidgetItem(student_data['Email']))
+        self.student_table.setItem(row, 6, QTableWidgetItem(student_data['SDT']))
+
+        self.edit_btn.setEnabled(False)
+        self.delete_btn.setEnabled(False)
+
     def editStudent(self):
         selected_rows = self.student_table.selectionModel().selectedRows()
         if not selected_rows:
@@ -675,13 +737,13 @@ class StudentManagementUI(QMainWindow):
         row = selected_rows[0].row()
 
         student_data = {
-            'student_id': self.student_table.item(row, 0).text(),  # Mã SV
-            'name': self.student_table.item(row, 1).text(),  # Họ tên
-            'email': self.student_table.item(row, 2).text(),  # Ngày sinh (đang gán vào email field trong form)
-            'phone': self.student_table.item(row, 3).text(),  # Giới tính (gán vào phone)
-            'class_name': self.student_table.item(row, 4).text(),  # Địa chỉ → lớp
-            'department': self.student_table.item(row, 5).text(),  # Email → khoa
-            'notes': self.student_table.item(row, 6).text(),  # SĐT → ghi chú
+            'MaSV': self.student_table.item(row, 0).text(),  # Mã SV
+            'TenSV': self.student_table.item(row, 1).text(),  # Họ tên
+            'NgaySinh': self.student_table.item(row, 2).text(),  # Ngày sinh (đang gán vào email field trong form)
+            'GioiTinh': self.student_table.item(row, 3).text(),  # Giới tính (gán vào phone)
+            'DiaChi': self.student_table.item(row, 4).text(),  # Địa chỉ → lớp
+            'Email': self.student_table.item(row, 5).text(),  # Email → khoa
+            'SDT': self.student_table.item(row, 6).text(),  # SĐT → ghi chú
             'embeddings': self.student_repository.get_face_embeddings_by_student_id(
                 self.student_table.item(row, 0).text()
             )
