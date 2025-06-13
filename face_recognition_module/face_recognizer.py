@@ -1,4 +1,4 @@
-# face_recognition_module/face_recognizer.py
+# face_recognition_module\face_recognizer.py
 import cv2
 import face_recognition
 import numpy as np
@@ -31,55 +31,64 @@ class FaceRecognizer:
 
     def load_known_faces(self):
         """
-        Tải tất cả dữ liệu mã hóa khuôn mặt từ CSDL.
-        Được gọi khi khởi tạo hoặc cần cập nhật dữ liệu.
+        Tải dữ liệu khuôn mặt đã mã hóa từ DB và lưu vào bộ nhớ.
         """
         print("Đang tải dữ liệu khuôn mặt từ cơ sở dữ liệu...")
 
         try:
-            # Lấy tất cả face embeddings từ database
             embeddings_from_db = self.student_repo.get_all_face_embeddings()
 
             if not embeddings_from_db:
-                print("Không có dữ liệu khuôn mặt nào trong cơ sở dữ liệu.")
+                print("⚠️ Không có dữ liệu khuôn mặt trong CSDL.")
                 return
 
-            # Reset danh sách
+            # Reset bộ nhớ
             self.known_face_encodings = []
             self.known_face_ids = []
             self.known_student_names = []
 
-            # Xử lý từng embedding
-            successful_loads = 0
-            failed_loads = 0
+            successful = 0
+            failed = 0
 
-            for ma_sv, encoding_blob in embeddings_from_db:
-                if encoding_blob:
-                    try:
-                        # Chuyển đổi BLOB thành numpy array
-                        face_encoding = np.frombuffer(encoding_blob, dtype=np.float64)
+            for row in embeddings_from_db:
+                # row có thể là tuple hoặc dict
+                if isinstance(row, dict):
+                    ma_sv = row["MaSV_FK"]
+                    encoding_blob = row["DuLieuMaHoa"]
+                else:
+                    ma_sv, encoding_blob = row
 
-                        # Lấy thông tin sinh viên
-                        student_info = self.student_repo.get_student_by_id(ma_sv)
+                try:
+                    if encoding_blob is None:
+                        raise ValueError("encoding_blob is None")
 
-                        if student_info and len(face_encoding) == 128:  # Kiểm tra encoding hợp lệ
-                            self.known_face_encodings.append(face_encoding)
-                            self.known_face_ids.append(ma_sv)
-                            self.known_student_names.append(student_info[1])  # TenSV
-                            successful_loads += 1
-                        else:
-                            print(f"Dữ liệu không hợp lệ cho sinh viên {ma_sv}")
-                            failed_loads += 1
+                    face_encoding = np.frombuffer(encoding_blob, dtype=np.float32)
 
-                    except Exception as e:
-                        print(f"Lỗi xử lý dữ liệu cho sinh viên {ma_sv}: {e}")
-                        failed_loads += 1
-                        continue
+                    if face_encoding.shape != (128,):
+                        raise ValueError(f"Invalid shape: {face_encoding.shape}")
 
-            print(f"Đã tải thành công {successful_loads} khuôn mặt, {failed_loads} lỗi.")
+                    student = self.student_repo.get_student_by_id(ma_sv)
+                    if not student:
+                        raise ValueError(f"Không tìm thấy sinh viên {ma_sv}")
+
+                    name = student["TenSV"]  # hoặc student["TenSV"] nếu là dict
+
+                    self.known_face_encodings.append(face_encoding)
+                    self.known_face_ids.append(ma_sv)
+                    self.known_student_names.append(name)
+
+                    successful += 1
+
+                except Exception as e:
+                    import traceback
+                    print(f"⚠️ Lỗi xử lý sinh viên {ma_sv}: {type(e).__name__} - {e}")
+                    traceback.print_exc()
+                    failed += 1
+
+            print(f"✅ Tải xong: {successful} thành công, {failed} lỗi.")
 
         except Exception as e:
-            print(f"Lỗi khi tải dữ liệu từ cơ sở dữ liệu: {e}")
+            print(f"❌ Lỗi tổng khi tải dữ liệu khuôn mặt: {e}")
 
     def recognize_face_from_image(self, image_path):
         """

@@ -1,37 +1,33 @@
-# database/base_repository.py
+import pymysql
 from pymysql import Error
-from database.connection_manager import ConnectionManager # Import from new file
+from database.connection_manager import ConnectionManager
 
 class BaseRepository:
     def __init__(self):
         self.conn_manager = ConnectionManager()
+        self.conn = self.conn_manager.get_connection()
+        self.cursor = self.conn_manager.get_cursor()
 
     def execute_query(self, query, params=None):
-        """Thực thi một câu truy vấn SQL và trả về đối tượng cursor."""
-        connection = self.conn_manager.get_connection()
-        cursor = self.conn_manager.get_cursor()
-        if not connection or not cursor:
+        if not self.conn or not self.cursor:
             print("Không thể thực hiện truy vấn: Không có kết nối DB.")
             return None
         try:
-            cursor.execute(query, params)
-            connection.commit()
-            return cursor
+            self.cursor.execute(query, params)
+            self.conn.commit()
+            return self.cursor
         except Error as e:
             print(f"Lỗi khi thực thi truy vấn: {e}")
-            connection.rollback()
+            self.conn.rollback()
             return None
 
     def fetch_all(self, query, params=None):
-        """Thực thi truy vấn SELECT và trả về tất cả các hàng."""
-        cursor = self.execute_query(query, params)
-        if cursor:
+        with self.conn.cursor(cursor=pymysql.cursors.Cursor) as cursor:
+            cursor.execute(query, params)
             return cursor.fetchall()
-        return None
 
     def fetch_one(self, query, params=None):
-        """Thực thi truy vấn SELECT và trả về một hàng duy nhất."""
         cursor = self.execute_query(query, params)
         if cursor:
             return cursor.fetchone()
-        return None
+

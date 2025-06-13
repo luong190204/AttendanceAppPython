@@ -1,6 +1,11 @@
 # database/student_repository.py
 from database.base_repository import BaseRepository
-from pymysql import Error # Import Error để xử lý lỗi cụ thể nếu cần
+import pymysql
+import numpy as np
+import logging
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class StudentRepository(BaseRepository):
     def __init__(self):
@@ -18,9 +23,11 @@ class StudentRepository(BaseRepository):
         query = "SELECT * FROM SinhVien"
         return self.fetch_all(query)
 
-    def get_student_by_id(self, MaSV):
-        query = "SELECT * FROM SinhVien WHERE MaSV = %s"
-        return self.fetch_one(query, (MaSV,))
+    def get_student_by_id(self, ma_sv):
+        query = "SELECT MaSV, TenSV FROM SinhVien WHERE MaSV = %s"
+        with self.conn.cursor(cursor=pymysql.cursors.DictCursor) as cursor:
+            cursor.execute(query, (ma_sv,))
+            return cursor.fetchone()
 
     def update_student(self, MaSV, TenSV, NgaySinh, GioiTinh, DiaChi, Email, SDT):
         query = """
@@ -49,17 +56,53 @@ class StudentRepository(BaseRepository):
 
     # KhuonMat related methods
     def add_face_embedding(self, MaSV_FK, DuongDanAnh, DuLieuMaHoa):
-        query = """
-        INSERT INTO KhuonMat (MaSV_FK, DuongDanAnh, DuLieuMaHoa)
-        VALUES (%s, %s, %s)
         """
-        params = (MaSV_FK, DuongDanAnh, DuLieuMaHoa)
-        return self.execute_query(query, params)
+        Thêm embedding khuôn mặt vào bảng KhuonMat.
+        DuLieuMaHoa phải là kiểu bytes (512 bytes tương ứng với 128 float32).
+        """
+        try:
+            if isinstance(DuLieuMaHoa, np.ndarray):
+                DuLieuMaHoa = DuLieuMaHoa.astype(np.float32).tobytes()
+            elif isinstance(DuLieuMaHoa, memoryview):
+                DuLieuMaHoa = DuLieuMaHoa.tobytes()
+            elif isinstance(DuLieuMaHoa, str):
+                logger.warning("⚠️ DuLieuMaHoa là kiểu str, có thể gây lỗi. Đang cố gắng encode lại...")
+                DuLieuMaHoa = DuLieuMaHoa.encode('latin1')
+
+            if not isinstance(DuLieuMaHoa, (bytes, bytearray)):
+                logger.error("❌ DuLieuMaHoa không phải bytes. Không thể lưu vào BLOB.")
+                return False
+
+            query = """
+                    INSERT INTO KhuonMat (MaSV_FK, DuongDanAnh, DuLieuMaHoa)
+                    VALUES (%s, %s, %s) \
+                    """
+            params = (MaSV_FK, DuongDanAnh, DuLieuMaHoa)
+            return self.execute_query(query, params)
+
+        except Exception as e:
+            logger.error(f"❌ Lỗi khi thêm embedding vào DB: {e}")
+            return False
 
     def get_all_face_embeddings(self):
-        # Trả về MaSV và DuLieuMaHoa để nhận diện
+        """
+        Lấy embedding từ DB, đảm bảo dữ liệu là bytes đúng chuẩn để convert sang numpy.
+        """
         query = "SELECT MaSV_FK, DuLieuMaHoa FROM KhuonMat"
-        return self.fetch_all(query)
+        raw_results = self.fetch_all(query)
+
+        processed_results = []
+        for student_id, embedding_data in raw_results:
+            if isinstance(embedding_data, memoryview):
+                # pymysql thường trả BLOB dưới dạng memoryview
+                embedding_data = embedding_data.tobytes()
+            elif isinstance(embedding_data, str):
+                # Nếu vì lý do gì đó là str, phải convert an toàn (đã hỏng dữ liệu rồi)
+                embedding_data = embedding_data.encode('latin1')  # chỉ dùng nếu buộc phải
+
+            processed_results.append((student_id, embedding_data))
+
+        return processed_results
 
     def get_face_embeddings_by_student_id(self, MaSV_FK):
         query = "SELECT DuLieuMaHoa FROM KhuonMat WHERE MaSV_FK = %s"

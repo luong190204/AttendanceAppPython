@@ -7,6 +7,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QIcon, QPixmap, QFont, QPainter, QPalette
 from PyQt5.QtCore import Qt, pyqtSignal, QPropertyAnimation, QEasingCurve, QRect
 
+from ui.manage_ui import DashboardWidget
+
 
 class MainWindow(QMainWindow):
     """
@@ -192,13 +194,17 @@ class MainWindow(QMainWindow):
                                                     "Chào mừng bạn đến với hệ thống điểm danh sinh viên!")
             self.stacked_widget.addWidget(temp_dashboard)
 
-        # Tương tự cho các trang khác (tạm thời sử dụng trang giả)
-        # Bạn có thể thay thế bằng các UI thực tế khi đã tạo
-
         # Trang Quản lý
-        manage_page = self._create_temp_page("Quản lý người dùng",
-                                             "Quản lý thông tin sinh viên và giảng viên")
-        self.stacked_widget.addWidget(manage_page)
+        try:
+            from .manage_ui import AttendanceManagerUI
+            self.manage_page = AttendanceManagerUI()
+            self.stacked_widget.addWidget(self.manage_page)
+
+            print("✅ Đã tải thành công trang Quản lý (AttendanceManagerUI)")
+        except ImportError:
+            manage_page = self._create_temp_page("Quản lý người dùng",
+                                                 "Quản lý thông tin sinh viên và giảng viên")
+            self.stacked_widget.addWidget(manage_page)
 
         # Trang Thống kê
         stats_page = self._create_temp_page("Thống kê và báo cáo",

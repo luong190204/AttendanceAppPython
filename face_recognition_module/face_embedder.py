@@ -1,4 +1,4 @@
-# face_recognition_module/face_embedder.py
+# face_recognition_module\face_embedder.py
 import cv2
 import face_recognition
 import numpy as np
@@ -53,51 +53,34 @@ class FaceEmbedder:
             logger.error(f"Lỗi khởi tạo FaceEmbedder: {e}")
             raise
 
-    def load_known_faces(self) -> None:
+    def load_known_faces(self):
         """
-        Tải tất cả dữ liệu mã hóa khuôn mặt từ CSDL với xử lý lỗi tốt hơn.
+        Load tất cả embedding khuôn mặt đã lưu từ database vào bộ nhớ.
         """
-        logger.info("Đang tải dữ liệu khuôn mặt đã biết từ CSDL...")
+        self.known_face_encodings = []
+        self.known_face_ids = []
 
         try:
-            embeddings_from_db = self.student_repo.get_all_face_embeddings()
+            raw_data = self.student_repo.get_all_face_embeddings()
 
-            if not embeddings_from_db:
-                logger.warning("Không có dữ liệu khuôn mặt nào trong CSDL.")
-                return
-
-            self.known_face_encodings.clear()
-            self.known_face_ids.clear()
-
-            successful_loads = 0
-            for ma_sv, encoding_blob in embeddings_from_db:
-                if not encoding_blob:
-                    logger.warning(f"Dữ liệu encoding trống cho sinh viên {ma_sv}")
-                    continue
-
+            for student_id, embedding_blob in raw_data:
                 try:
-                    # Xử lý nhiều định dạng dữ liệu có thể
-                    if isinstance(encoding_blob, (bytes, bytearray)):
-                        face_encoding = np.frombuffer(encoding_blob, dtype=np.float64)
-                    else:
-                        face_encoding = np.array(encoding_blob, dtype=np.float64)
+                    embedding_array = np.frombuffer(embedding_blob, dtype=np.float32)
 
-                    # Kiểm tra kích thước encoding hợp lệ (face_recognition thường tạo 128-d vector)
-                    if face_encoding.size == 128:
-                        self.known_face_encodings.append(face_encoding)
-                        self.known_face_ids.append(ma_sv)
-                        successful_loads += 1
-                    else:
-                        logger.warning(f"Kích thước encoding không hợp lệ cho SV {ma_sv}: {face_encoding.size}")
+                    if embedding_array.shape != (128,):
+                        logger.warning(f"Embedding sai định dạng cho {student_id}: {embedding_array.shape}")
+                        continue
 
-                except (ValueError, TypeError) as e:
-                    logger.error(f"Lỗi chuyển đổi BLOB cho SV {ma_sv}: {e}")
-                    continue
+                    self.known_face_encodings.append(embedding_array)
+                    self.known_face_ids.append(student_id)
 
-            logger.info(f"Đã tải thành công {successful_loads}/{len(embeddings_from_db)} khuôn mặt từ CSDL.")
+                except Exception as e:
+                    logger.warning(f"Lỗi khi xử lý embedding cho sinh viên {student_id}: {e}")
+
+            logger.info(f"Đã load {len(self.known_face_encodings)} khuôn mặt từ database.")
 
         except Exception as e:
-            logger.error(f"Lỗi khi tải dữ liệu khuôn mặt: {e}")
+            logger.error(f"Lỗi khi load known faces từ database: {e}")
 
     def _initialize_camera(self, camera_index: int = 0) -> Optional[cv2.VideoCapture]:
         """
@@ -275,6 +258,7 @@ class FaceEmbedder:
 
                             if image_path:
                                 # Lưu embedding vào CSDL
+                                face_encoding = face_encoding.astype(np.float32)
                                 embedding_blob = face_encoding.tobytes()
 
                                 with self.processing_lock:
@@ -389,20 +373,20 @@ if __name__ == '__main__':
     # Thay 'SV001' bằng Mã SV thực tế của bạn
     # Bạn có thể gọi student_repo.add_student() ở đây nếu chưa có SV001
     student_repo = StudentRepository()
-    if not student_repo.get_student_by_id('SV002'):
-        student_repo.add_student('SV002', 'Lê Tiến Mạnh', '2005-01-15', 'Nam', 'Ha Noi', 'manh@example.com',
+    if not student_repo.get_student_by_id('SV005'):
+        student_repo.add_student('SV005', 'Vu Van Toi', '2004-01-15', 'Nam', 'Ha Noi', 'toi@example.com',
                                  '0912345678')
-        print("Đã thêm SV002 cho mục đích kiểm thử.")
+        print("Đã thêm SV005 cho mục đích kiểm thử.")
 
-    print("\nBắt đầu quá trình thu thập khuôn mặt cho SV002...")
-    embeddings = embedder.capture_and_extract_face_embedding('SV002', num_samples=3)
+    print("\nBắt đầu quá trình thu thập khuôn mặt cho SV005...")
+    embeddings = embedder.capture_and_extract_face_embedding('SV005', num_samples=3)
 
     if embeddings:
-        print(f"Đã trích xuất và lưu thành công {len(embeddings)} embedding cho SV002.")
+        print(f"Đã trích xuất và lưu thành công {len(embeddings)} embedding cho SV005.")
         # Sau khi lưu, bạn có thể tải lại để kiểm tra
         embedder.load_known_faces()
         print(f"Số lượng khuôn mặt đã tải lại: {len(embedder.known_face_encodings)}")
     else:
-        print("Không thể thu thập và lưu embedding cho SV002.")
+        print("Không thể thu thập và lưu embedding cho SV005.")
 
     conn_manager.disconnect()
