@@ -177,7 +177,7 @@ class FaceEmbedderTester:
                     continue
 
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                face_encodings = self.face_embedder._detect_and_encode_faces(rgb_frame)
+                face_encodings = self.face_embedder.detect_and_encode_faces(rgb_frame)
 
                 if face_encodings:
                     faces_detected += 1

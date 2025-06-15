@@ -226,7 +226,7 @@ class FaceEmbedder:
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
                 # Phát hiện và mã hóa khuôn mặt
-                face_encodings = self._detect_and_encode_faces(rgb_frame)
+                face_encodings = self.detect_and_encode_faces(rgb_frame)
                 face_locations = face_recognition.face_locations(rgb_frame, model=self.face_detection_model)
 
                 # Vẽ khung hình và thông tin
@@ -354,7 +354,7 @@ class FaceEmbedder:
         }
 
 
-"""
+
 # --- Phần kiểm thử (có thể xóa sau khi tích hợp vào UI) ---
 if __name__ == '__main__':
     # Đảm bảo MySQL server đang chạy và DB/bảng đã được tạo, config.py đã đúng
@@ -374,21 +374,20 @@ if __name__ == '__main__':
     # Thay 'SV001' bằng Mã SV thực tế của bạn
     # Bạn có thể gọi student_repo.add_student() ở đây nếu chưa có SV001
     student_repo = StudentRepository()
-    if not student_repo.get_student_by_id('SV005'):
-        student_repo.add_student('SV005', 'Vu Van Toi', '2004-01-15', 'Nam', 'Ha Noi', 'toi@example.com',
+    if not student_repo.get_student_by_id('SV006'):
+        student_repo.add_student('SV006', 'Dinh Luong', '2004-01-15', 'Nam', 'Ha Noi', 'luong@example.com',
                                  '0912345678')
-        print("Đã thêm SV005 cho mục đích kiểm thử.")
+        print("Đã thêm SV006 cho mục đích kiểm thử.")
 
-    print("\nBắt đầu quá trình thu thập khuôn mặt cho SV005...")
-    embeddings = embedder.capture_and_extract_face_embedding('SV005', num_samples=3)
+    print("\nBắt đầu quá trình thu thập khuôn mặt cho SV006...")
+    embeddings = embedder.capture_and_extract_face_embedding('SV006', num_samples=3)
 
     if embeddings:
-        print(f"Đã trích xuất và lưu thành công {len(embeddings)} embedding cho SV005.")
+        print(f"Đã trích xuất và lưu thành công {len(embeddings)} embedding cho SV006.")
         # Sau khi lưu, bạn có thể tải lại để kiểm tra
         embedder.load_known_faces()
         print(f"Số lượng khuôn mặt đã tải lại: {len(embedder.known_face_encodings)}")
     else:
-        print("Không thể thu thập và lưu embedding cho SV005.")
+        print("Không thể thu thập và lưu embedding cho SV006.")
 
     conn_manager.disconnect()
-"""

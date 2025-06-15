@@ -8,6 +8,9 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QPalette, QColor
 from functools import partial
 
+from ui.class_subject_management_ui import ClassSubjectManagementUI
+
+
 # Import các UI modules
 def safe_import(module_name, class_name):
     """Safely import modules and return class or None"""
@@ -21,6 +24,8 @@ def safe_import(module_name, class_name):
 
 # Import tất cả các UI classes
 StudentManagementUI = safe_import('ui.student_management_ui', 'StudentManagementUI')
+ClassSubjectManagementUI = safe_import('ui.class_subject_management_ui', 'ClassSubjectManagementUI')
+SessionManagementUI = safe_import('ui.session_ui', 'SessionManagementUI')
 # TeacherManagementUI = safe_import('teacher_management_ui', 'TeacherManagementUI')
 # AttendanceManagementUI = safe_import('attendance_management_ui', 'AttendanceManagementUI')
 # SessionManagementUI = safe_import('session_management_ui', 'SessionManagementUI')
@@ -360,16 +365,10 @@ class AttendanceManagerUI(QMainWindow):
         try:
             if module_name == "Quản lý Sinh viên" and StudentManagementUI:
                 window = StudentManagementUI()
-            # elif module_name == "Quản lý Giảng viên" and TeacherManagementUI:
-            #     window = TeacherManagementUI()
-            # elif module_name == "Quản lý Điểm danh" and AttendanceManagementUI:
-            #     window = AttendanceManagementUI()
-            # elif module_name == "Quản lý Buổi học" and SessionManagementUI:
-            #     window = SessionManagementUI()
-            # elif module_name == "Quản lý Môn học" and CourseManagementUI:
-            #     window = CourseManagementUI()
-            # elif module_name == "Xem ảnh" and ImageViewerUI:
-            #     window = ImageViewerUI()
+            elif module_name == "Quản lý Môn học" and ClassSubjectManagementUI:
+                 window = ClassSubjectManagementUI()
+            elif module_name == "Quản lý Buổi học" and SessionManagementUI:
+                window = SessionManagementUI()
             else:
                 # Tạo placeholder UI nếu module chưa được implement
                 window = PlaceholderUI(module_name)

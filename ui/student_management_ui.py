@@ -1,5 +1,6 @@
 import sys
 import time
+import traceback
 
 import cv2
 import numpy as np
@@ -316,8 +317,9 @@ class StudentFormDialog(QDialog):
         form_group.setLayout(form_layout)
         layout.addWidget(form_group)
 
-        face_group = QGroupBox("🎭 Dữ liệu khuôn mặt")
-        face_group.setStyleSheet("""
+        # === Nhóm dữ liệu khuôn mặt ===
+        self.face_group = QGroupBox("🎭 Dữ liệu khuôn mặt")
+        self.face_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
                 border: 2px solid #E5E7EB;
@@ -383,10 +385,13 @@ class StudentFormDialog(QDialog):
         face_button_layout.addWidget(self.capture_face_btn)
         face_button_layout.addWidget(self.clear_faces_btn)
         face_button_layout.addStretch()
-
         face_layout.addLayout(face_button_layout)
-        face_group.setLayout(face_layout)
-        layout.addWidget(face_group)
+
+        self.face_group.setLayout(face_layout)
+
+        # 👉 Chỉ hiển thị nếu đang ở chế độ sửa sinh viên
+        self.face_group.setVisible(bool(self.student_data))
+        layout.addWidget(self.face_group)
 
         note_label = QLabel("* Trường bắt buộc")
         note_label.setStyleSheet("color: #EF4444; font-style: italic; padding: 5px;")
@@ -517,9 +522,11 @@ class StudentFormDialog(QDialog):
         if not name:
             QMessageBox.warning(self, "Lỗi nhập liệu", "Họ tên là bắt buộc!")
             return False
+        """ Hiện tại không lấy dữ liệu khuôn mặt khi thêm sinh viên
         if len(self.face_embeddings) < 3 and not self.student_data:
-            QMessageBox.warning(self, "Lỗi nhập liệu", "Cần ít nhất 5 mẫu dữ liệu khuôn mặt!")
+            QMessageBox.warning(self, "Lỗi nhập liệu", "Cần ít nhất 3 mẫu dữ liệu khuôn mặt!")
             return False
+        """
         return True
 
     def saveStudent(self):
@@ -549,7 +556,15 @@ class StudentFormDialog(QDialog):
                 )
                 action = "cập nhật"
             else:  # thêm mới
-                success = self.student_repository.add_student(student_data)
+                success = self.student_repository.add_student(
+                    student_data['MaSV'],
+                    student_data['TenSV'],
+                    student_data['NgaySinh'],
+                    student_data['GioiTinh'],
+                    student_data['DiaChi'],
+                    student_data['Email'],
+                    student_data['SDT']
+                )
                 action = "thêm"
 
             if success:
@@ -557,8 +572,10 @@ class StudentFormDialog(QDialog):
                 self.studentSaved.emit(student_data)
                 self.accept()
             else:
+                traceback.print_exc()
                 QMessageBox.critical(self, "Lỗi", f"Không thể {action} sinh viên. Vui lòng kiểm tra lại.")
         except Exception as e:
+
             QMessageBox.critical(self, "Lỗi", f"Lỗi khi lưu dữ liệu sinh viên: {str(e)}")
 
     def closeEvent(self, event):
@@ -697,19 +714,21 @@ class StudentManagementUI(QMainWindow):
         central_widget.setLayout(layout)
 
     def loadStudents(self):
+        print("Reload danh sách sinh viên...")
         try:
             students = self.student_repository.get_all_students()
             self.student_table.setRowCount(len(students))
             for row, student in enumerate(students):
-                self.student_table.setItem(row, 0, QTableWidgetItem(str(student[0])))  # MaSV
-                self.student_table.setItem(row, 1, QTableWidgetItem(str(student[1])))  # TenSV
-                self.student_table.setItem(row, 2, QTableWidgetItem(str(student[2])))  # NgaySinh
-                self.student_table.setItem(row, 3, QTableWidgetItem(str(student[3])))  # GioiTinh
-                self.student_table.setItem(row, 4, QTableWidgetItem(str(student[4])))  # DiaChi
-                self.student_table.setItem(row, 5, QTableWidgetItem(str(student[5])))  # Email
-                self.student_table.setItem(row, 6, QTableWidgetItem(str(student[6])))  # SDT
+                self.student_table.setItem(row, 0, QTableWidgetItem(student["MaSV"]))  # MaSV
+                self.student_table.setItem(row, 1, QTableWidgetItem(student["TenSV"]))  # TenSV
+                self.student_table.setItem(row, 2, QTableWidgetItem(student["NgaySinh"].strftime("%d/%m/%Y")))  # NgaySinh
+                self.student_table.setItem(row, 3, QTableWidgetItem(student["GioiTinh"]))  # GioiTinh
+                self.student_table.setItem(row, 4, QTableWidgetItem(student["DiaChi"]))  # DiaChi
+                self.student_table.setItem(row, 5, QTableWidgetItem(student["Email"]))  # Email
+                self.student_table.setItem(row, 6, QTableWidgetItem(student["SDT"]))  # SDT
             self.student_table.resizeColumnsToContents()
         except Exception as e:
+            traceback.print_exc()
             QMessageBox.critical(self, "Lỗi", f"Không thể tải danh sách sinh viên: {str(e)}")
 
     def addStudent(self):
@@ -739,11 +758,11 @@ class StudentManagementUI(QMainWindow):
         student_data = {
             'MaSV': self.student_table.item(row, 0).text(),  # Mã SV
             'TenSV': self.student_table.item(row, 1).text(),  # Họ tên
-            'NgaySinh': self.student_table.item(row, 2).text(),  # Ngày sinh (đang gán vào email field trong form)
-            'GioiTinh': self.student_table.item(row, 3).text(),  # Giới tính (gán vào phone)
-            'DiaChi': self.student_table.item(row, 4).text(),  # Địa chỉ → lớp
-            'Email': self.student_table.item(row, 5).text(),  # Email → khoa
-            'SDT': self.student_table.item(row, 6).text(),  # SĐT → ghi chú
+            'NgaySinh': self.student_table.item(row, 2).text(),  # Ngày sinh
+            'GioiTinh': self.student_table.item(row, 3).text(),  # Giới tính
+            'DiaChi': self.student_table.item(row, 4).text(),  # Địa chỉ
+            'Email': self.student_table.item(row, 5).text(),  # Email
+            'SDT': self.student_table.item(row, 6).text(),  # SĐT
             'embeddings': self.student_repository.get_face_embeddings_by_student_id(
                 self.student_table.item(row, 0).text()
             )
@@ -785,5 +804,15 @@ class StudentManagementUI(QMainWindow):
         self.edit_btn.setEnabled(is_selected)
         self.delete_btn.setEnabled(is_selected)
 
+    def closeEvent(self, event):
+        """Xử lý khi đóng cửa sổ"""
+        reply = QMessageBox.question(self, 'Xác nhận',
+                                     'Bạn có chắc chắn muốn thoát?',
+                                     QMessageBox.Yes | QMessageBox.No,
+                                     QMessageBox.No)
 
+        if reply == QMessageBox.Yes:
+            event.accept()
+        else:
+            event.ignore()
 
