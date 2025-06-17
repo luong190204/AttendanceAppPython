@@ -1,7 +1,7 @@
 # database/attendance_repository.py
 from database.base_repository import BaseRepository
 from pymysql import Error  # Import Error for specific error handling if needed
-import datetime
+from datetime import datetime, timedelta
 
 
 class AttendanceRepository(BaseRepository):
@@ -103,3 +103,24 @@ class AttendanceRepository(BaseRepository):
         result = self.fetch_one(query, params)
         return bool(result and result[0] > 0)
 
+    def count_attendance_today(self):
+        """
+        Đếm số sinh viên đã điểm danh trong ngày hôm nay.
+
+        Returns:
+            int: Số lượng bản ghi điểm danh hôm nay.
+        """
+        """Đếm số lượt điểm danh trong ngày hôm nay"""
+        today = datetime.now().date()
+        tomorrow = today + timedelta(days=1)
+
+        query = """
+                SELECT COUNT(*) AS total
+                FROM DiemDanh
+                WHERE ThoiGian >= %s \
+                  AND ThoiGian < %s \
+                """
+        params = (today.strftime("%Y-%m-%d"), tomorrow.strftime("%Y-%m-%d"))
+
+        result = self.fetch_one(query, params)
+        return result.get('total', 0) if result else 0

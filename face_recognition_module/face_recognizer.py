@@ -136,35 +136,35 @@ class FaceRecognizer:
             frame (numpy.array): Khung hình từ camera (BGR format)
 
         Returns:
-            list: Danh sách [(ma_sv, ten_sv, face_location, confidence), ...]
+            list: Danh sách [(ma_sv, ten_sv, face_location, confidence, face_img), ...]
                   face_location: (top, right, bottom, left)
+                  face_img: ảnh khuôn mặt được cắt từ frame (dạng numpy)
         """
         if not self.known_face_encodings:
             return []
 
         try:
-            # Chuyển đổi BGR (OpenCV) sang RGB (face_recognition)
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-            # Tìm vị trí khuôn mặt
             face_locations = face_recognition.face_locations(rgb_frame)
 
             if not face_locations:
                 return []
 
-            # Mã hóa khuôn mặt
             face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
             results = []
             for face_encoding, face_location in zip(face_encodings, face_locations):
-                # So sánh với database
                 recognized_student = self._compare_face_with_database(face_encoding)
+
+                (top, right, bottom, left) = face_location
+                # Cắt ảnh khuôn mặt từ frame gốc (vì frame gốc đang là BGR để hiển thị được bằng Qt)
+                face_img = frame[top:bottom, left:right]
 
                 if recognized_student:
                     ma_sv, ten_sv, confidence = recognized_student
-                    results.append((ma_sv, ten_sv, face_location, confidence))
+                    results.append((ma_sv, ten_sv, face_location, confidence, face_img))
                 else:
-                    results.append((None, "Unknown", face_location, 0.0))
+                    results.append((None, "Unknown", face_location, 0.0, face_img))
 
             return results
 

@@ -12,6 +12,7 @@ from database.connection_manager import ConnectionManager
 from database.student_repository import StudentRepository
 from database.user_repository import UserRepository
 from database.class_subject_repository import ClassSubjectRepository
+from database.attendance_repository import AttendanceRepository
 
 class StatCard(QFrame):
     """
@@ -254,6 +255,7 @@ class DashboardUI(QWidget):
             self.student_repo = StudentRepository()
             self.lecturer_repo = UserRepository()
             self.class_repo = ClassSubjectRepository()
+            self.attendance_repo = AttendanceRepository()
             self.db_connected = True
         except Exception as e:
                 print(f"Database connection failed: {e}")
@@ -366,7 +368,7 @@ class DashboardUI(QWidget):
         students_count = self.student_repo.get_total_students()
         lecturers_count = self.lecturer_repo.get_total_lecturers()
         classes_count = self.class_repo.get_total_classes()
-
+        attendance_count = self.attendance_repo.count_attendance_today()
         # === Tiêu đề của section thống kê ===
         stats_title = QLabel("📊 Thống kê tổng quan")
         stats_title.setObjectName("section_title")
@@ -387,7 +389,7 @@ class DashboardUI(QWidget):
         self.student_card.set_value(students_count)
         self.lecturer_card.set_value(lecturers_count)
         self.class_card.set_value(classes_count)
-        self.attendance_card.set_value(0)  # Tạm thời gán 0, có thể cập nhật động sau
+        self.attendance_card.set_value(attendance_count)
 
         # === Đặt 4 card vào Grid layout (2 hàng x 2 cột) ===
         stats_grid.addWidget(self.student_card, 0, 0)

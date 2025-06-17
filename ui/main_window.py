@@ -212,9 +212,16 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(stats_page)
 
         # Trang Nhận diện
-        recognition_page = self._create_temp_page("Nhận diện khuôn mặt",
+        try:
+            from .attendance_taking_ui import AttendanceUI
+            self.attendance_page = AttendanceUI()
+            self.stacked_widget.addWidget(self.attendance_page)
+
+            print("✅ Đã tải thành công trang nhận diện (Attendace taking)")
+        except ImportError:
+            recognition_page = self._create_temp_page("Nhận diện khuôn mặt",
                                                   "Chức năng nhận diện khuôn mặt để điểm danh")
-        self.stacked_widget.addWidget(recognition_page)
+            self.stacked_widget.addWidget(recognition_page)
 
         # Trang Tài khoản
         account_page = self._create_temp_page("Cài đặt tài khoản",
