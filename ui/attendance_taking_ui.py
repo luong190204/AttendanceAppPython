@@ -1,9 +1,11 @@
+# Trang thực hiện nhận diện điểm danh
 # python -m ui.attendance_taking_ui
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 import cv2
 import sys
 import datetime
+import os
 from PIL import Image, ImageQt
 
 from face_recognition_module.face_recognizer import FaceRecognizer
@@ -134,12 +136,7 @@ class AttendanceUI(QtWidgets.QWidget):
         self.session_combo = QtWidgets.QComboBox()
         self.session_combo.setMinimumHeight(35)
 
-        self.type_combo = QtWidgets.QComboBox()
-        self.type_combo.addItems(["🔵 Vào", "🔴 Ra"])
-        self.type_combo.setMinimumHeight(35)
-
         form_layout.addRow("📖 Môn học / Buổi học:", self.session_combo)
-        form_layout.addRow("⏰ Loại điểm danh:", self.type_combo)
 
         selection_layout.addLayout(form_layout)
 
@@ -389,7 +386,7 @@ class AttendanceUI(QtWidgets.QWidget):
             for student_id, student_name, face_location, confidence, face_img in recognized_faces:
                 top, right, bottom, left = face_location
 
-                if student_id and confidence > 70:  # Độ tin cậy cao
+                if student_id and confidence > 75:  # Độ tin cậy cao
                     print(f"Đã nhận diện: {student_id} - {student_name} ({confidence}%)")
 
                     # Vẽ khung xanh cho khuôn mặt được nhận diện
@@ -443,7 +440,7 @@ class AttendanceUI(QtWidgets.QWidget):
             student_info = self.face_recognizer.get_student_info(student_id)
             now = datetime.datetime.now()
 
-            # Format thời gian: giờ -> ngày
+            # Format thời gian: giờ ngày
             time_str = now.strftime("%H:%M:%S %d/%m/%Y")
 
             # Lưu thông tin sinh viên hiện tại
@@ -492,36 +489,69 @@ class AttendanceUI(QtWidgets.QWidget):
             self.current_student = None
             self.attendance_btn.setEnabled(False)
 
+    import os
+    import datetime
+    import cv2
+
     def process_attendance(self, student_id, student_name, face_img):
-        """Xử lý điểm danh cho sinh viên - chỉ được gọi khi người dùng xác nhận"""
+        """Xử lý điểm danh và lưu ảnh khuôn mặt"""
         try:
             student_info = self.face_recognizer.get_student_info(student_id)
             now = datetime.datetime.now()
-
-            # Format thời gian: giờ -> ngày
-            time_str = now.strftime("%H:%M:%S %d/%m/%Y")
-            datetime_str = now.strftime("%Y-%m-%d %H:%M:%S")
-
             session_id = self.session_combo.currentData()
-            status = self.type_combo.currentText().replace("🔵 ", "").replace("🔴 ", "")
 
             if not session_id:
                 QtWidgets.QMessageBox.warning(self, "⚠️ Thông báo", "Vui lòng chọn buổi học trước khi điểm danh!")
                 return
 
-            # Lưu điểm danh
-            self.attendance.add_attendance_record(session_id, student_id, datetime_str, status)
+            # Lấy giờ bắt đầu của buổi học
+            session_info = self.session.get_session_by_id(session_id)
+            gio_bat_dau_timedelta = session_info.get("GioBatDau")
+            ngay_hoc = session_info.get("NgayHoc")  # dạng "YYYY-MM-DD"
 
-            # Thông báo thành công
+            # Chuyển timedelta thành giờ, phút, giây
+            gio = (datetime.datetime.min + gio_bat_dau_timedelta).time()
+
+            # Kết hợp date và time thành datetime
+            gio_bat_dau = datetime.datetime.combine(ngay_hoc, gio)
+            # Tính phút đi muộn (nếu có)
+            minutes_late = max(0, int((now - gio_bat_dau).total_seconds() // 60))
+            status = f"Đi Muộn {minutes_late} phút" if minutes_late > 0 else "Có mặt"
+
+            # Lưu ảnh sinh viên
+            # Thư mục ngày (dùng để nhóm ảnh)
+            date_folder = now.strftime("%Y-%m-%d")
+
+            # Đường dẫn gốc tới thư mục AttendanceApp
+            base_dir = os.path.dirname(os.path.abspath(__file__))  # /AttendanceApp/ui
+            project_root = os.path.abspath(os.path.join(base_dir, ".."))  # /AttendanceApp
+
+            # Đường dẫn tới thư mục lưu ảnh trong /assets/attendance/yyyy-mm-dd
+            image_dir = os.path.join(project_root, "assets", "attendance", date_folder)
+            os.makedirs(image_dir, exist_ok=True)
+            # Tạo tên file ảnh
+            image_path = os.path.join(image_dir, f"{student_id}_{now.strftime('%H%M%S')}.jpg")
+            cv2.imwrite(image_path, face_img)
+
+            # Lưu vào DB
+            self.attendance.add_attendance_record(
+                MaBuoiHoc_FK=session_id,
+                MaSV_FK=student_id,
+                ThoiGian=now.strftime("%Y-%m-%d %H:%M:%S"),
+                TrangThai=status,
+                HinhAnh=image_path
+            )
+
+            # Thông báo
             msg = QtWidgets.QMessageBox()
             msg.setIcon(QtWidgets.QMessageBox.Information)
             msg.setWindowTitle("✅ Điểm danh thành công")
-            msg.setText(f"Sinh viên {student_info.get('TenSV', student_name)} đã điểm danh thành công!")
-            msg.setDetailedText(f"Thời gian: {time_str}\nLoại: {status}")
+            msg.setText(f"Sinh viên {student_info.get('TenSV', student_name)} đã điểm danh!")
+            msg.setDetailedText(f"Thời gian: {now.strftime('%H:%M:%S %d/%m/%Y')}\nTrạng thái: {status}")
             msg.exec_()
 
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "❌ Lỗi", f"Không thể xử lý điểm danh: {str(e)}")
+            QtWidgets.QMessageBox.critical(self, "❌ Lỗi", f"Không thể điểm danh: {str(e)}")
 
     def stop_camera(self):
         """Dừng camera"""

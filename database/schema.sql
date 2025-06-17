@@ -60,11 +60,11 @@ CREATE TABLE IF NOT EXISTS DiemDanh (
     MaBuoiHoc_FK VARCHAR(10) NOT NULL,
     MaSV_FK VARCHAR(10) NOT NULL,
     ThoiGian DATETIME NOT NULL,
-    TrangThai VARCHAR(20) NOT NULL, -- 'Có mặt', 'Vắng mặt', 'Có phép'
+    TrangThai VARCHAR(20) NOT NULL,  -- Ví dụ: 'Có mặt', 'Muộn 15 phút', 'Vắng mặt'
+    HinhAnh VARCHAR(255),            -- Đường dẫn đến file ảnh lưu trên máy
     FOREIGN KEY (MaBuoiHoc_FK) REFERENCES BuoiHoc(MaBuoiHoc),
     FOREIGN KEY (MaSV_FK) REFERENCES SinhVien(MaSV)
 );
-
 
 CREATE TABLE BuoiHoc (
     MaBuoiHoc VARCHAR(10) PRIMARY KEY,

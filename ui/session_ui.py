@@ -313,7 +313,6 @@ class SessionManagementUI(QWidget):
         """Load all sessions to table"""
         try:
             sessions = self.session_repo.get_all_sessions()
-            print("DEBUG: ", sessions)
             self.table.setRowCount(len(sessions))
 
             for row_idx, session in enumerate(sessions):

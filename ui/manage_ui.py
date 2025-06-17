@@ -8,9 +8,6 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QPalette, QColor
 from functools import partial
 
-from ui.class_subject_management_ui import ClassSubjectManagementUI
-
-
 # Import các UI modules
 def safe_import(module_name, class_name):
     """Safely import modules and return class or None"""
@@ -26,8 +23,8 @@ def safe_import(module_name, class_name):
 StudentManagementUI = safe_import('ui.student_management_ui', 'StudentManagementUI')
 ClassSubjectManagementUI = safe_import('ui.class_subject_management_ui', 'ClassSubjectManagementUI')
 SessionManagementUI = safe_import('ui.session_ui', 'SessionManagementUI')
+AttendanceManagementUI = safe_import('attendance_management_ui', 'AttendanceManagementUI')
 # TeacherManagementUI = safe_import('teacher_management_ui', 'TeacherManagementUI')
-# AttendanceManagementUI = safe_import('attendance_management_ui', 'AttendanceManagementUI')
 # SessionManagementUI = safe_import('session_management_ui', 'SessionManagementUI')
 # CourseManagementUI = safe_import('course_management_ui', 'CourseManagementUI')
 # ImageViewerUI = safe_import('image_viewer_ui', 'ImageViewerUI')
@@ -369,6 +366,8 @@ class AttendanceManagerUI(QMainWindow):
                  window = ClassSubjectManagementUI()
             elif module_name == "Quản lý Buổi học" and SessionManagementUI:
                 window = SessionManagementUI()
+            elif module_name == "Quản lý Điểm danh" and AttendanceManagementUI:
+                window = AttendanceManagementUI()
             else:
                 # Tạo placeholder UI nếu module chưa được implement
                 window = PlaceholderUI(module_name)
