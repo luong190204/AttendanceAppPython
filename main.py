@@ -92,7 +92,7 @@ def on_conn_failed(error_message):
     if app_instance:
         app_instance.quit() # Đảm bảo ứng dụng thoát nếu không kết nối được
 
-
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 def main():
     global app_instance, progress_dialog
     logger.info("Bắt đầu khởi động ứng dụng...")

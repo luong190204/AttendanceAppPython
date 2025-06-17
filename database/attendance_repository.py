@@ -8,78 +8,48 @@ class AttendanceRepository(BaseRepository):
     def __init__(self):
         super().__init__()
 
-    def add_attendance_record(self, MaLop_FK, MaMon_FK, MaSV_FK, ThoiGian, TrangThai):
+    def add_attendance_record(self, MaBuoiHoc_FK, MaSV_FK, ThoiGian, TrangThai):
         """
         Thêm một bản ghi điểm danh mới vào CSDL.
-
-        Args:
-            MaLop_FK (str): Mã lớp học.
-            MaMon_FK (str): Mã môn học.
-            MaSV_FK (str): Mã sinh viên.
-            ThoiGian (datetime.datetime): Thời gian điểm danh.
-            TrangThai (str): Trạng thái điểm danh ('Có mặt', 'Vắng mặt', 'Có phép', v.v.).
-
-        Returns:
-            cursor: Đối tượng cursor nếu thành công, None nếu có lỗi.
         """
         query = """
-                INSERT INTO DiemDanh (MaLop_FK, MaMon_FK, MaSV_FK, ThoiGian, TrangThai)
-                VALUES (%s, %s, %s, %s, %s) \
+                INSERT INTO DiemDanh (MaBuoiHoc_FK, MaSV_FK, ThoiGian, TrangThai)
+                VALUES (%s, %s, %s, %s)
                 """
-        params = (MaLop_FK, MaMon_FK, MaSV_FK, ThoiGian, TrangThai)
+        params = (MaBuoiHoc_FK, MaSV_FK, ThoiGian, TrangThai)
         return self.execute_query(query, params)
 
-    def get_attendance_records(self, MaLop=None, MaMon=None, MaSV=None, Ngay=None, TrangThai=None):
+    def get_attendance_records(self, MaBuoiHoc=None, MaSV=None, Ngay=None, TrangThai=None):
         """
         Lấy các bản ghi điểm danh dựa trên các tiêu chí lọc.
-
-        Args:
-            MaLop (str, optional): Lọc theo mã lớp học.
-            MaMon (str, optional): Lọc theo mã môn học.
-            MaSV (str, optional): Lọc theo mã sinh viên.
-            Ngay (datetime.date or str, optional): Lọc theo ngày điểm danh (ví dụ: 'YYYY-MM-DD').
-            TrangThai (str, optional): Lọc theo trạng thái điểm danh.
-
-        Returns:
-            list: Danh sách các bản ghi điểm danh, mỗi bản ghi là một tuple.
-                  Hoặc None nếu có lỗi.
         """
         base_query = """
-                     SELECT dd.ID_DiemDanh, \
-                            sv.MaSV, \
-                            sv.TenSV, \
-                            mh.MaMon, \
-                            mh.TenMon, \
-                            lh.MaLop, \
-                            lh.TenLop, \
-                            dd.ThoiGian, \
+                     SELECT dd.ID_DiemDanh,
+                            sv.MaSV,
+                            sv.TenSV,
+                            bh.MaBuoiHoc,
+                            bh.NgayHoc,
+                            bh.MaMon,
+                            bh.MaLop_FK,
+                            dd.ThoiGian,
                             dd.TrangThai
-                     FROM DiemDanh dd \
-                              JOIN \
-                          SinhVien sv ON dd.MaSV_FK = sv.MaSV \
-                              JOIN \
-                          MonHoc mh ON dd.MaMon_FK = mh.MaMon \
-                              JOIN \
-                          LopHoc lh ON dd.MaLop_FK = lh.MaLop
+                     FROM DiemDanh dd
+                              JOIN SinhVien sv ON dd.MaSV_FK = sv.MaSV
+                              JOIN BuoiHoc bh ON dd.MaBuoiHoc_FK = bh.MaBuoiHoc
                      WHERE 1 = 1 \
                      """
         params = []
 
-        if MaLop:
-            base_query += " AND dd.MaLop_FK = %s"
-            params.append(MaLop)
-        if MaMon:
-            base_query += " AND dd.MaMon_FK = %s"
-            params.append(MaMon)
+        if MaBuoiHoc:
+            base_query += " AND dd.MaBuoiHoc_FK = %s"
+            params.append(MaBuoiHoc)
         if MaSV:
             base_query += " AND dd.MaSV_FK = %s"
             params.append(MaSV)
         if Ngay:
             base_query += " AND DATE(dd.ThoiGian) = %s"
-            if isinstance(Ngay, datetime.date):
-                params.append(Ngay.strftime('%Y-%m-%d'))
-            else:
-                params.append(Ngay)
+            ngay_str = Ngay.strftime('%Y-%m-%d') if isinstance(Ngay, datetime.date) else Ngay
+            params.append(ngay_str)
         if TrangThai:
             base_query += " AND dd.TrangThai = %s"
             params.append(TrangThai)
@@ -87,86 +57,49 @@ class AttendanceRepository(BaseRepository):
         base_query += " ORDER BY dd.ThoiGian DESC"
         return self.fetch_all(base_query, tuple(params))
 
-    def get_daily_attendance_summary(self, Ngay=None, MaLop=None, MaMon=None):
+    def get_daily_attendance_summary(self, Ngay=None, MaBuoiHoc=None):
         """
-        Lấy tóm tắt điểm danh (số lượng có mặt/vắng mặt) cho một ngày, lớp, môn cụ thể.
-
-        Args:
-            Ngay (datetime.date or str): Ngày cần lấy tóm tắt.
-            MaLop (str, optional): Lọc theo mã lớp học.
-            MaMon (str, optional): Lọc theo mã môn học.
-
-        Returns:
-            dict: Một dictionary chứa tóm tắt (ví dụ: {'Có mặt': 25, 'Vắng mặt': 5})
-                  Hoặc None nếu có lỗi.
+        Tóm tắt điểm danh (số lượng theo trạng thái) cho 1 ngày hoặc buổi học cụ thể.
         """
-        if not Ngay:
-            print("Cần cung cấp ngày để lấy tóm tắt điểm danh.")
+        if not Ngay and not MaBuoiHoc:
+            print("Cần ngày hoặc mã buổi học để thống kê.")
             return None
 
         query = """
-                SELECT dd.TrangThai, \
+                SELECT dd.TrangThai,
                        COUNT(DISTINCT dd.MaSV_FK) as SoLuong
                 FROM DiemDanh dd
-                WHERE DATE (dd.ThoiGian) = %s \
+                         JOIN BuoiHoc bh ON dd.MaBuoiHoc_FK = bh.MaBuoiHoc
+                WHERE 1 = 1 \
                 """
         params = []
-        if isinstance(Ngay, datetime.date):
-            params.append(Ngay.strftime('%Y-%m-%d'))
-        else:
-            params.append(Ngay)
 
-        if MaLop:
-            query += " AND dd.MaLop_FK = %s"
-            params.append(MaLop)
-        if MaMon:
-            query += " AND dd.MaMon_FK = %s"
-            params.append(MaMon)
+        if Ngay:
+            query += " AND DATE(dd.ThoiGian) = %s"
+            ngay_str = Ngay.strftime('%Y-%m-%d') if isinstance(Ngay, datetime.date) else Ngay
+            params.append(ngay_str)
+
+        if MaBuoiHoc:
+            query += " AND dd.MaBuoiHoc_FK = %s"
+            params.append(MaBuoiHoc)
 
         query += " GROUP BY dd.TrangThai"
 
         results = self.fetch_all(query, tuple(params))
-        summary = {}
-        if results:
-            for status, count in results:
-                summary[status] = count
-        return summary
+        return {status: count for status, count in results} if results else {}
 
-    def check_student_attended_today(self, MaSV_FK, MaLop_FK, MaMon_FK, Ngay=None):
+    def check_student_attended_today(self, MaSV_FK, MaBuoiHoc_FK):
         """
-        Kiểm tra xem một sinh viên đã điểm danh 'Có mặt' trong một lớp/môn cụ thể vào ngày nhất định hay chưa.
-        Đây là một chức năng quan trọng để tránh điểm danh trùng lặp.
-
-        Args:
-            MaSV_FK (str): Mã sinh viên.
-            MaLop_FK (str): Mã lớp học.
-            MaMon_FK (str): Mã môn học.
-            Ngay (datetime.date or str, optional): Ngày cần kiểm tra. Mặc định là ngày hiện tại.
-
-        Returns:
-            bool: True nếu sinh viên đã điểm danh 'Có mặt', False nếu chưa hoặc có lỗi.
+        Kiểm tra xem sinh viên đã điểm danh 'Có mặt' trong buổi học này chưa.
         """
-        if Ngay is None:
-            Ngay = datetime.date.today()
-
         query = """
                 SELECT COUNT(*)
                 FROM DiemDanh
                 WHERE MaSV_FK = %s
-                  AND MaLop_FK = %s
-                  AND MaMon_FK = %s
-                  AND DATE (ThoiGian) = %s
+                  AND MaBuoiHoc_FK = %s
                   AND TrangThai = 'Có mặt' \
                 """
-
-        if isinstance(Ngay, datetime.date):
-            ngay_str = Ngay.strftime('%Y-%m-%d')
-        else:
-            ngay_str = Ngay  # Giả định Ngay đã là chuỗi định dạng YYYY-MM-DD
-
-        params = (MaSV_FK, MaLop_FK, MaMon_FK, ngay_str)
-
+        params = (MaSV_FK, MaBuoiHoc_FK)
         result = self.fetch_one(query, params)
-        if result and result[0] > 0:
-            return True
-        return False
+        return bool(result and result[0] > 0)
+
