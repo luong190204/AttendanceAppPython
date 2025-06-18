@@ -23,7 +23,7 @@ def safe_import(module_name, class_name):
 StudentManagementUI = safe_import('ui.student_management_ui', 'StudentManagementUI')
 ClassSubjectManagementUI = safe_import('ui.class_subject_management_ui', 'ClassSubjectManagementUI')
 SessionManagementUI = safe_import('ui.session_ui', 'SessionManagementUI')
-AttendanceManagementUI = safe_import('attendance_management_ui', 'AttendanceManagementUI')
+AttendanceManagementUI = safe_import('ui.attendance_management_ui', 'AttendanceManagementUI')
 # TeacherManagementUI = safe_import('teacher_management_ui', 'TeacherManagementUI')
 # SessionManagementUI = safe_import('session_management_ui', 'SessionManagementUI')
 # CourseManagementUI = safe_import('course_management_ui', 'CourseManagementUI')

@@ -135,13 +135,11 @@ class LoginUI(QWidget):
         # Username field
         self.username_container = self.create_input_field("👤", "Tên đăng nhập")
         self.username_input = self.username_container.findChild(QLineEdit)
-        self.username_input.setText("admin") # gán giá trị mặc định
         form_layout.addWidget(self.username_container)
 
         # Password field
         self.password_container = self.create_input_field("🔒", "Mật khẩu", is_password=True)
         self.password_input = self.password_container.findChild(QLineEdit)
-        self.password_input.setText("123456") # gán giá trị mặc định
         form_layout.addWidget(self.password_container)
 
         # Login button

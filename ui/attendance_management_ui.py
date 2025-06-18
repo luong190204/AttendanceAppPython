@@ -107,11 +107,18 @@ class AttendanceManagementUI(QWidget):
                 gridline-color: #ecf0f1;
                 border: 1px solid #bdc3c7;
                 border-radius: 5px;
+                font-size: 14px;
             }
-
+            
             QTableWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #ecf0f1;
+                border: 1px solid #d1d5db;
+                padding: 6px;
+            }
+            
+            /* Khi dòng được chọn */
+            QTableWidget::item:selected {
+                color: white;
+                background-color: #3498db;
             }
 
             QHeaderView::section {
@@ -374,6 +381,10 @@ class AttendanceManagementUI(QWidget):
             self.inputs["Thời gian"].setText(thoi_gian)
             self.inputs["Trạng thái"].setText(trang_thai)
             self.inputs["Hình ảnh"].setText(hinh_anh)
+        print(
+            f"[DEBUG] row={row}, values={[self.table.item(row, col).text() if self.table.item(row, col) else 'None' for col in range(self.table.columnCount())]}")
+        print("ID:", id_diemdanh)
+        print("Ảnh:", hinh_anh)
 
     def update_time(self):
         """Cập nhật thời gian hiện tại"""
